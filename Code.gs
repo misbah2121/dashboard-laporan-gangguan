@@ -45,7 +45,7 @@ const DEFAULT_CONFIG = [
   ['APP_NAME', 'Dashboard Laporan Gangguan', 'Judul aplikasi'],
   ['ORG_NAME', 'Nama Instansi', 'Nama instansi / organisasi'],
   ['ADMIN_EMAILS', '', 'Email admin, pisahkan dengan koma. Kosongkan = semua pengguna boleh edit & hapus'],
-  ['MAP_CENTER', '-2.1316, 106.1169', 'Titik tengah peta (lat, lng)'],
+  ['MAP_CENTER', '-2.1300, 106.0750', 'Titik tengah peta (lat, lng)'],
   ['MAP_ZOOM', '11', 'Zoom awal peta'],
   ['SLA_HOURS', '24', 'Target penyelesaian (jam) untuk perhitungan SLA'],
 ];
@@ -219,7 +219,7 @@ function seedDemoData(count) {
       wilayah: pick_(master.Wilayah),
       lokasi: pick_(places) + ' No. ' + (1 + Math.floor(Math.random() * 120)),
       lat: (center[0] + (Math.random() - 0.5) * 0.14).toFixed(5),
-      lng: (center[1] - 0.04 + (Math.random() - 0.5) * 0.09).toFixed(5),
+      lng: (center[1] + (Math.random() - 0.5) * 0.09).toFixed(5),
       deskripsi: 'Contoh laporan gangguan (data demo).',
       status: status,
       petugas: status === STATUS.BARU ? '' : pick_(master.Petugas),
