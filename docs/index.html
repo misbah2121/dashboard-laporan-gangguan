@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Laporan Gangguan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #ffffff; --border: #e3e8ee; --text: #1c2430; --muted: #6b7684;
+    --primary: #1f6f43; --primary-soft: #e6f2eb; --blue: #2f6fdf; --amber: #c9861a; --red: #c8443a; --gray: #8a94a3;
+    --radius: 10px; --shadow: 0 1px 2px rgba(16,24,40,.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  a { color: var(--blue); }
+  .app { display: grid; grid-template-columns: 228px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side { background: #13221a; color: #cfe0d6; padding: 20px 14px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 20px; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 14px; }
+  .brand-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--primary); display: grid; place-items: center; color: #fff; }
+  .brand-title { font-weight: 700; color: #fff; font-size: 14px; line-height: 1.2; }
+  .brand-sub { font-size: 12px; color: #8fb3a0; }
+  .nav button { all: unset; display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: #cfe0d6; margin-bottom: 2px; }
+  .nav button:hover { background: rgba(255,255,255,.06); }
+  .nav button.active { background: rgba(63,185,80,.16); color: #fff; }
+  .nav svg { width: 18px; height: 18px; flex: none; }
+  .side-foot { margin-top: auto; font-size: 12px; color: #7d9c8b; padding: 8px; }
+
+  /* Main */
+  .main { padding: 22px 26px 40px; min-width: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .topbar h1 { font-size: 20px; margin: 0; }
+  .topbar .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { border-color: #c8d0da; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn.primary:hover { background: #185c37; }
+  .btn.danger { color: var(--red); }
+  .btn svg { width: 16px; height: 16px; }
+  select, input, textarea { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: #fff; }
+  select:focus, input:focus, textarea:focus { outline: 2px solid rgba(31,111,67,.25); border-color: var(--primary); }
+
+  .grid { display: grid; gap: 14px; }
+  .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; min-width: 0; }
+  .kpi .label { color: var(--muted); font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+  .kpi .value { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -.5px; }
+  .kpi .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .charts { grid-template-columns: 2fr 1fr; margin-bottom: 14px; }
+  .charts2 { grid-template-columns: 1fr 1fr 1fr; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+  .chart-box { position: relative; height: 240px; }
+  .chart-box.sm { height: 220px; }
+
+  /* Table */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filters input[type=search] { min-width: 220px; flex: 1; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; background: #fafbfc; position: sticky; top: 0; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f8faf9; }
+  .table-wrap { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .muted { color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .b-Baru { background: #e7effd; color: var(--blue); }
+  .b-Diproses { background: #fdf3e2; color: var(--amber); }
+  .b-Selesai { background: var(--primary-soft); color: var(--primary); }
+  .b-Dibatalkan { background: #eef0f3; color: var(--gray); }
+  .p-Darurat { color: var(--red); font-weight: 600; }
+  .p-Tinggi { color: #d06a1f; font-weight: 600; }
+  .empty { text-align: center; color: var(--muted); padding: 40px; }
+
+  /* Form */
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+  .form .full { grid-column: 1 / -1; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; }
+  .req { color: var(--red); }
+
+  #map, #pickMap { height: calc(100vh - 170px); border-radius: var(--radius); border: 1px solid var(--border); }
+  #pickMap { height: 260px; }
+
+  /* Drawer */
+  .overlay { position: fixed; inset: 0; background: rgba(15,23,32,.35); display: none; z-index: 1000; }
+  .overlay.show { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100%); background: #fff; z-index: 1001; transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,.08); }
+  .drawer.show { transform: none; }
+  .drawer header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: start; }
+  .drawer .body { padding: 18px 20px; overflow: auto; flex: 1; }
+  .drawer footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: space-between; }
+  dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; margin: 0 0 18px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; word-break: break-word; }
+  .timeline { border-left: 2px solid var(--border); margin: 6px 0 0 6px; padding-left: 14px; }
+  .timeline div { margin-bottom: 10px; position: relative; }
+  .timeline div::before { content: ''; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+  .timeline div.off::before { background: var(--border); }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #13221a; color: #fff; padding: 10px 16px; border-radius: 8px; z-index: 2000; display: none; }
+  .demo-bar { background: #fff8e6; border: 1px solid #f1dfb0; color: #7a5a12; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; display: none; }
+  .loading { display: grid; place-items: center; height: 60vh; color: var(--muted); }
+  .page { display: none; }
+  .page.active { display: block; }
+  .x { all: unset; cursor: pointer; color: var(--muted); font-size: 22px; line-height: 1; }
+
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, 1fr); } .charts, .charts2 { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; flex-direction: row; align-items: center; padding: 10px; overflow-x: auto; }
+    .brand { border: 0; padding: 0 8px 0 0; margin: 0; }
+    .brand-sub, .side-foot { display: none; }
+    .nav { display: flex; gap: 4px; }
+    .nav button { width: auto; white-space: nowrap; }
+    .nav button span { display: none; }
+    .main { padding: 16px; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .form { grid-template-columns: 1fr; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <div><div class="brand-title" id="appName">Laporan Gangguan</div><div class="brand-sub" id="orgName">Dashboard Monitoring</div></div>
+    </div>
+    <nav class="nav">
+      <button data-page="dashboard" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Dashboard</span></button>
+      <button data-page="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Daftar Laporan</span></button>
+      <button data-page="create"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>Buat Laporan</span></button>
+      <button data-page="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Peta</span></button>
+    </nav>
+    <div class="side-foot" id="userInfo"></div>
+  </aside>
+
+  <main class="main">
+    <div class="demo-bar" id="demoBar">Mode demo: data di halaman ini hanya contoh dan tersimpan sementara di browser. Untuk memakai versi asli, pasang di Google Apps Script (lihat README).</div>
+    <div class="loading" id="loading">Memuat data…</div>
+
+    <!-- DASHBOARD -->
+    <section class="page" id="page-dashboard">
+      <div class="topbar">
+        <div><h1>Ringkasan</h1><div class="sub" id="rangeLabel"></div></div>
+        <div class="actions">
+          <select id="rangeSel">
+            <option value="7">7 hari terakhir</option>
+            <option value="30" selected>30 hari terakhir</option>
+            <option value="90">90 hari terakhir</option>
+            <option value="0">Semua data</option>
+          </select>
+          <select id="wilayahSel"><option value="">Semua wilayah</option></select>
+          <button class="btn" id="refreshBtn" title="Muat ulang"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg></button>
+        </div>
+      </div>
+      <div class="grid kpis" id="kpis"></div>
+      <div class="grid charts">
+        <div class="card"><h3>Tren laporan harian</h3><div class="chart-box"><canvas id="cTrend"></canvas></div></div>
+        <div class="card"><h3>Status</h3><div class="chart-box"><canvas id="cStatus"></canvas></div></div>
+      </div>
+      <div class="grid charts2">
+        <div class="card"><h3>Per kategori</h3><div class="chart-box sm"><canvas id="cKategori"></canvas></div></div>
+        <div class="card"><h3>Per wilayah</h3><div class="chart-box sm"><canvas id="cWilayah"></canvas></div></div>
+        <div class="card"><h3>Jam laporan masuk</h3><div class="chart-box sm"><canvas id="cJam"></canvas></div></div>
+      </div>
+      <div class="card">
+        <h3>Laporan terbaru yang belum selesai</h3>
+        <div id="openList"></div>
+      </div>
+    </section>
+
+    <!-- DAFTAR -->
+    <section class="page" id="page-reports">
+      <div class="topbar">
+        <div><h1>Daftar Laporan</h1><div class="sub" id="countLabel"></div></div>
+        <div class="actions">
+          <button class="btn" id="exportBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>Ekspor CSV</button>
+          <button class="btn primary" data-goto="create"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Laporan baru</button>
+        </div>
+      </div>
+      <div class="filters">
+        <input type="search" id="q" placeholder="Cari ID, lokasi, pelapor, deskripsi…">
+        <select id="fStatus"><option value="">Semua status</option></select>
+        <select id="fKategori"><option value="">Semua kategori</option></select>
+        <select id="fPrioritas"><option value="">Semua prioritas</option></select>
+        <select id="fWilayah"><option value="">Semua wilayah</option></select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Dilaporkan</th><th>Kategori</th><th class="hide-sm">Lokasi</th><th class="hide-sm">Wilayah</th><th>Prioritas</th><th>Status</th><th class="hide-sm">Durasi</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BUAT -->
+    <section class="page" id="page-create">
+      <div class="topbar"><div><h1>Buat Laporan</h1><div class="sub">Isi data gangguan yang dilaporkan</div></div></div>
+      <div class="card">
+        <form id="createForm" class="form" autocomplete="off">
+          <div class="field"><label>Nama pelapor <span class="req">*</span></label><input name="pelapor" required></div>
+          <div class="field"><label>Kontak</label><input name="kontak" placeholder="No. HP / email"></div>
+          <div class="field"><label>Kategori <span class="req">*</span></label><select name="kategori" required></select></div>
+          <div class="field"><label>Prioritas</label><select name="prioritas"></select></div>
+          <div class="field"><label>Wilayah</label><select name="wilayah"></select></div>
+          <div class="field"><label>Lokasi / alamat <span class="req">*</span></label><input name="lokasi" required></div>
+          <div class="field full"><label>Deskripsi gangguan <span class="req">*</span></label><textarea name="deskripsi" rows="3" required></textarea></div>
+          <div class="field full">
+            <label>Titik lokasi di peta <span class="muted" style="font-weight:400">(klik peta untuk menandai, opsional)</span></label>
+            <div id="pickMap"></div>
+            <input type="hidden" name="lat"><input type="hidden" name="lng">
+          </div>
+          <div class="full actions" style="justify-content:flex-end">
+            <button type="reset" class="btn">Kosongkan</button>
+            <button type="submit" class="btn primary" id="submitBtn">Simpan laporan</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- PETA -->
+    <section class="page" id="page-map">
+      <div class="topbar">
+        <div><h1>Peta Gangguan</h1><div class="sub">Titik laporan yang memiliki koordinat</div></div>
+        <div class="actions"><select id="mapStatus"><option value="open">Belum selesai</option><option value="">Semua status</option></select></div>
+      </div>
+      <div id="map"></div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <header><div><div class="mono muted" id="dId"></div><h2 style="margin:4px 0 0;font-size:18px" id="dTitle"></h2></div><button class="x" id="dClose">&times;</button></header>
+  <div class="body" id="dBody"></div>
+  <footer>
+    <button class="btn danger" id="dDelete">Hapus</button>
+    <div class="actions"><button class="btn" id="dCancel">Tutup</button><button class="btn primary" id="dSave">Simpan perubahan</button></div>
+  </footer>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+ * Koneksi ke server (Apps Script) atau mode demo (browser saja)
+ * ============================================================ */
+const IS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+
+function call(fn, ...args) {
+  if (IS_GAS) {
+    return new Promise((resolve, reject) => {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
+    });
+  }
+  return Promise.resolve().then(() => Demo[fn](...args));
+}
+
+const Demo = (() => {
+  const KEY = 'dlg-demo-v1';
+  const master = {
+    Kategori: ['Listrik Padam', 'Jaringan Internet', 'Air Bersih', 'Jalan Rusak', 'Penerangan Jalan', 'Lainnya'],
+    Prioritas: ['Rendah', 'Sedang', 'Tinggi', 'Darurat'],
+    Wilayah: ['Wilayah Utara', 'Wilayah Selatan', 'Wilayah Timur', 'Wilayah Barat', 'Wilayah Tengah'],
+    Status: ['Baru', 'Diproses', 'Selesai', 'Dibatalkan'],
+    Petugas: ['Tim A', 'Tim B', 'Tim C'],
+  };
+  const config = { APP_NAME: 'Dashboard Laporan Gangguan', ORG_NAME: 'Demo Instansi', MAP_CENTER: '-2.1316, 106.1169', MAP_ZOOM: '11', SLA_HOURS: '24' };
+  let rnd = 7;
+  const r = () => ((rnd = (rnd * 16807) % 2147483647) / 2147483647);
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  function seed() {
+    const now = Date.now(), out = [];
+    const names = ['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fajar', 'Gita', 'Hendra', 'Indah', 'Joko'];
+    const places = ['Jl. Merdeka', 'Jl. Sudirman', 'Pasar Lama', 'Perumahan Asri', 'Kantor Desa', 'Sekolah Dasar', 'Puskesmas', 'Terminal'];
+    const descs = ['Padam sejak pagi, satu gang terdampak.', 'Koneksi putus total, lampu indikator merah.', 'Air tidak mengalir sejak kemarin malam.', 'Lubang besar di tengah jalan, membahayakan pengendara.', 'Lampu jalan mati sepanjang 200 meter.', 'Kabel menjuntai rendah di dekat pertigaan.'];
+    for (let i = 0; i < 140; i++) {
+      const t = now - Math.pow(r(), 1.3) * 60 * 864e5 - (r() < .5 ? 0 : (r() * 6 + 6) * 36e5);
+      const age = (now - t) / 36e5;
+      let st = 'Selesai';
+      if (age < 5) st = 'Baru'; else if (age < 40) st = r() < .55 ? 'Diproses' : 'Selesai'; else if (r() < .05) st = 'Dibatalkan';
+      const start = st !== 'Baru' ? t + (0.2 + r() * 3) * 36e5 : null;
+      const done = st === 'Selesai' ? start + (0.5 + r() * 34) * 36e5 : null;
+      const d = new Date(t), ymd = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+      out.push({
+        id: 'LG-' + ymd + '-' + String(i + 1).padStart(4, '0'), tanggalLapor: d.toISOString(), pelapor: pick(names),
+        kontak: '08' + Math.floor(1e9 + r() * 9e9), kategori: pick(master.Kategori), prioritas: pick(['Rendah', 'Sedang', 'Sedang', 'Tinggi', 'Darurat']),
+        wilayah: pick(master.Wilayah), lokasi: pick(places) + ' No. ' + (1 + Math.floor(r() * 120)),
+        lat: (-2.1316 + (r() - .5) * .18).toFixed(5), lng: (106.1169 + (r() - .5) * .18).toFixed(5),
+        deskripsi: pick(descs), status: st, petugas: st === 'Baru' ? '' : pick(master.Petugas),
+        tanggalMulai: start ? new Date(start).toISOString() : '', tanggalSelesai: done ? new Date(done).toISOString() : '',
+        catatan: '', diperbarui: new Date(done || start || t).toISOString(),
+      });
+    }
+    return out.sort((a, b) => b.tanggalLapor.localeCompare(a.tanggalLapor));
+  }
+  function load() { try { const v = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(v) && v.length) return v; } catch (e) {} return seed(); }
+  function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {} }
+  let reports = load();
+  return {
+    getInitialData: () => ({ config, master, reports: reports.slice(), user: { email: 'demo@contoh.id', isAdmin: true }, demo: true }),
+    getReports: () => reports.slice(),
+    createReport(d) {
+      const now = new Date(), ymd = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const n = reports.filter((x) => x.id.indexOf('LG-' + ymd) === 0).reduce((m, x) => Math.max(m, parseInt(x.id.slice(-4), 10) || 0), 0) + 1;
+      const rep = Object.assign({ kontak: '', prioritas: '', wilayah: '', lat: '', lng: '', petugas: '', tanggalMulai: '', tanggalSelesai: '', catatan: '' }, d,
+        { id: 'LG-' + ymd + '-' + String(n).padStart(4, '0'), tanggalLapor: now.toISOString(), status: 'Baru', diperbarui: now.toISOString() });
+      reports.unshift(rep); save(reports); return rep;
+    },
+    updateReport(id, patch) {
+      const i = reports.findIndex((x) => x.id === id); if (i < 0) throw new Error('Tidak ditemukan');
+      const cur = reports[i], now = new Date().toISOString(), next = Object.assign({}, cur, patch, { diperbarui: now });
+      if (patch.status && patch.status !== cur.status) {
+        if (patch.status === 'Diproses' && !cur.tanggalMulai) next.tanggalMulai = now;
+        if (patch.status === 'Selesai') { if (!next.tanggalMulai) next.tanggalMulai = now; next.tanggalSelesai = now; }
+        if (patch.status === 'Baru' || patch.status === 'Diproses') next.tanggalSelesai = '';
+      }
+      reports[i] = next; save(reports); return next;
+    },
+    deleteReport(id) { reports = reports.filter((x) => x.id !== id); save(reports); return true; },
+  };
+})();
+
+/* ============================================================
+ * State & util
+ * ============================================================ */
+const S = { config: {}, master: {}, reports: [], user: {}, charts: {}, map: null, mapLayer: null, pickMap: null, pickMarker: null, current: null };
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const COLORS = { Baru: '#2f6fdf', Diproses: '#c9861a', Selesai: '#1f6f43', Dibatalkan: '#8a94a3' };
+const PALETTE = ['#1f6f43', '#2f6fdf', '#c9861a', '#8e5bd0', '#c8443a', '#2a9d9a', '#6b7684'];
+const fmtDate = (iso, time = true) => {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + (time ? ' ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '');
+};
+const hoursBetween = (a, b) => (new Date(b) - new Date(a)) / 36e5;
+function fmtDur(h) {
+  if (h == null || isNaN(h)) return '–';
+  if (h < 1) return Math.round(h * 60) + ' mnt';
+  if (h < 48) return h.toFixed(1).replace('.', ',') + ' jam';
+  return (h / 24).toFixed(1).replace('.', ',') + ' hari';
+}
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = 'none'), 2600); }
+function fillSelect(sel, list, first) { sel.innerHTML = (first != null ? `<option value="">${esc(first)}</option>` : '') + list.map((v) => `<option>${esc(v)}</option>`).join(''); }
+const isOpen = (r) => r.status === 'Baru' || r.status === 'Diproses';
+
+/* ============================================================
+ * Navigasi
+ * ============================================================ */
+const PAGES = ['dashboard', 'reports', 'create', 'map'];
+function go(page) {
+  if (!PAGES.includes(page)) page = 'dashboard';
+  $$('.nav button').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
+  $$('.page').forEach((p) => p.classList.toggle('active', p.id === 'page-' + page));
+  if (page === 'map') setTimeout(renderMap, 50);
+  if (page === 'create') setTimeout(initPickMap, 50);
+  if (page === 'reports') renderTable();
+  try { history.replaceState(null, '', '#' + page); } catch (e) {}
+}
+$$('.nav button').forEach((b) => b.addEventListener('click', () => go(b.dataset.page)));
+document.addEventListener('click', (e) => { const g = e.target.closest('[data-goto]'); if (g) go(g.dataset.goto); });
+
+/* ============================================================
+ * Dashboard
+ * ============================================================ */
+function filteredForDashboard() {
+  const days = +$('#rangeSel').value, w = $('#wilayahSel').value, from = days ? Date.now() - days * 864e5 : 0;
+  return S.reports.filter((r) => new Date(r.tanggalLapor).getTime() >= from && (!w || r.wilayah === w));
+}
+
+function renderDashboard() {
+  const list = filteredForDashboard(), days = +$('#rangeSel').value;
+  $('#rangeLabel').textContent = (days ? days + ' hari terakhir' : 'Semua data') + ($('#wilayahSel').value ? ' · ' + $('#wilayahSel').value : '');
+
+  const count = (s) => list.filter((r) => r.status === s).length;
+  const done = list.filter((r) => r.status === 'Selesai' && r.tanggalSelesai);
+  const durs = done.map((r) => hoursBetween(r.tanggalLapor, r.tanggalSelesai));
+  const avg = durs.length ? durs.reduce((a, b) => a + b, 0) / durs.length : null;
+  const sla = +S.config.SLA_HOURS || 24;
+  const slaPct = durs.length ? Math.round((durs.filter((h) => h <= sla).length / durs.length) * 100) : null;
+  const urgent = list.filter((r) => isOpen(r) && r.prioritas === 'Darurat').length;
+
+  const kpi = (label, value, hint, color) => `<div class="card kpi"><div class="label">${color ? `<span class="dot" style="background:${color}"></span>` : ''}${label}</div><div class="value">${value}</div><div class="hint">${hint}</div></div>`;
+  $('#kpis').innerHTML =
+    kpi('Total laporan', list.length, 'dalam periode ini') +
+    kpi('Baru', count('Baru'), urgent ? `${urgent} darurat belum selesai` : 'menunggu ditangani', COLORS.Baru) +
+    kpi('Diproses', count('Diproses'), 'sedang dikerjakan', COLORS.Diproses) +
+    kpi('Selesai', count('Selesai'), slaPct == null ? '–' : `${slaPct}% sesuai SLA ${sla} jam`, COLORS.Selesai) +
+    kpi('Rata-rata penyelesaian', fmtDur(avg), 'dari lapor sampai selesai');
+
+  // Tren harian
+  const nDays = days || Math.max(14, Math.ceil((Date.now() - Math.min(...list.map((r) => +new Date(r.tanggalLapor)), Date.now())) / 864e5));
+  const labels = [], masuk = [], selesai = [];
+  for (let i = nDays - 1; i >= 0; i--) {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+    const key = d.toDateString();
+    labels.push(d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
+    masuk.push(list.filter((r) => new Date(r.tanggalLapor).toDateString() === key).length);
+    selesai.push(list.filter((r) => r.tanggalSelesai && new Date(r.tanggalSelesai).toDateString() === key).length);
+  }
+  chart('cTrend', 'line', { labels, datasets: [
+    { label: 'Masuk', data: masuk, borderColor: '#2f6fdf', backgroundColor: 'rgba(47,111,223,.08)', fill: true, cubicInterpolationMode: 'monotone', pointRadius: 0, borderWidth: 2 },
+    { label: 'Selesai', data: selesai, borderColor: '#1f6f43', backgroundColor: 'transparent', cubicInterpolationMode: 'monotone', pointRadius: 0, borderWidth: 2 },
+  ] }, { plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 10, usePointStyle: true } } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true, ticks: { precision: 0 } } } });
+
+  const st = S.master.Status || Object.keys(COLORS);
+  chart('cStatus', 'doughnut', { labels: st, datasets: [{ data: st.map(count), backgroundColor: st.map((s) => COLORS[s] || '#999'), borderWidth: 0 }] },
+    { cutout: '68%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, usePointStyle: true } } } });
+
+  barChart('cKategori', groupCount(list, 'kategori'), true);
+  barChart('cWilayah', groupCount(list, 'wilayah'), true);
+
+  const jam = Array(24).fill(0); list.forEach((r) => jam[new Date(r.tanggalLapor).getHours()]++);
+  chart('cJam', 'bar', { labels: jam.map((_, i) => String(i).padStart(2, '0')), datasets: [{ data: jam, backgroundColor: '#1f6f43', borderRadius: 3 }] },
+    { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } }, y: { beginAtZero: true, ticks: { precision: 0 } } } });
+
+  const open = list.filter(isOpen).sort((a, b) => prioRank(b) - prioRank(a) || b.tanggalLapor.localeCompare(a.tanggalLapor)).slice(0, 6);
+  $('#openList').innerHTML = open.length ? `<table><tbody>${open.map(rowHtml).join('')}</tbody></table>` : '<div class="empty">Tidak ada laporan yang terbuka.</div>';
+}
+const prioRank = (r) => ({ Darurat: 4, Tinggi: 3, Sedang: 2, Rendah: 1 }[r.prioritas] || 0);
+function groupCount(list, key) { const m = {}; list.forEach((r) => (m[r[key] || '–'] = (m[r[key] || '–'] || 0) + 1)); return Object.entries(m).sort((a, b) => b[1] - a[1]); }
+function barChart(id, entries, horizontal) {
+  chart(id, 'bar', { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 4 }] },
+    { indexAxis: horizontal ? 'y' : 'x', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, grid: { display: !horizontal }, ticks: { precision: 0 } }, y: { grid: { display: false } } } });
+}
+function chart(id, type, data, options) {
+  if (S.charts[id]) S.charts[id].destroy();
+  S.charts[id] = new Chart(document.getElementById(id), { type, data, options: Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: 300 } }, options) });
+}
+
+/* ============================================================
+ * Daftar laporan
+ * ============================================================ */
+function rowHtml(r) {
+  const dur = r.tanggalSelesai ? hoursBetween(r.tanggalLapor, r.tanggalSelesai) : isOpen(r) ? hoursBetween(r.tanggalLapor, new Date()) : null;
+  return `<tr data-id="${esc(r.id)}">
+    <td class="mono">${esc(r.id)}</td>
+    <td>${fmtDate(r.tanggalLapor)}</td>
+    <td>${esc(r.kategori)}</td>
+    <td class="hide-sm">${esc(r.lokasi)}</td>
+    <td class="hide-sm">${esc(r.wilayah)}</td>
+    <td class="p-${esc(r.prioritas)}">${esc(r.prioritas || '–')}</td>
+    <td><span class="badge b-${esc(r.status)}">${esc(r.status)}</span></td>
+    <td class="hide-sm ${isOpen(r) ? 'muted' : ''}">${fmtDur(dur)}${isOpen(r) ? ' berjalan' : ''}</td>
+  </tr>`;
+}
+function currentFilter() {
+  const q = $('#q').value.trim().toLowerCase();
+  const f = { status: $('#fStatus').value, kategori: $('#fKategori').value, prioritas: $('#fPrioritas').value, wilayah: $('#fWilayah').value };
+  return S.reports.filter((r) =>
+    Object.keys(f).every((k) => !f[k] || r[k] === f[k]) &&
+    (!q || [r.id, r.lokasi, r.pelapor, r.deskripsi, r.petugas, r.kategori].join(' ').toLowerCase().includes(q)));
+}
+function renderTable() {
+  const list = currentFilter();
+  $('#countLabel').textContent = `${list.length} dari ${S.reports.length} laporan`;
+  $('#tbody').innerHTML = list.length ? list.map(rowHtml).join('') : '<tr><td colspan="8" class="empty">Tidak ada laporan yang cocok.</td></tr>';
+}
+['#q', '#fStatus', '#fKategori', '#fPrioritas', '#fWilayah'].forEach((s) => $(s).addEventListener('input', renderTable));
+document.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) openDrawer(tr.dataset.id); });
+
+$('#exportBtn').addEventListener('click', () => {
+  const cols = [['id', 'ID'], ['tanggalLapor', 'Tanggal Lapor'], ['pelapor', 'Pelapor'], ['kontak', 'Kontak'], ['kategori', 'Kategori'], ['prioritas', 'Prioritas'], ['wilayah', 'Wilayah'], ['lokasi', 'Lokasi'], ['lat', 'Latitude'], ['lng', 'Longitude'], ['deskripsi', 'Deskripsi'], ['status', 'Status'], ['petugas', 'Petugas'], ['tanggalMulai', 'Tanggal Mulai'], ['tanggalSelesai', 'Tanggal Selesai'], ['catatan', 'Catatan']];
+  const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const csv = [cols.map((c) => q(c[1])).join(',')].concat(currentFilter().map((r) => cols.map((c) => q(r[c[0]])).join(','))).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'laporan-gangguan-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+});
+
+/* ============================================================
+ * Detail (drawer)
+ * ============================================================ */
+function openDrawer(id) {
+  const r = S.reports.find((x) => x.id === id); if (!r) return;
+  S.current = r;
+  $('#dId').textContent = r.id;
+  $('#dTitle').textContent = r.kategori + ' · ' + r.lokasi;
+  const opt = (list, v) => list.map((x) => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  $('#dBody').innerHTML = `
+    <dl>
+      <dt>Status</dt><dd><span class="badge b-${esc(r.status)}">${esc(r.status)}</span></dd>
+      <dt>Prioritas</dt><dd class="p-${esc(r.prioritas)}">${esc(r.prioritas || '–')}</dd>
+      <dt>Pelapor</dt><dd>${esc(r.pelapor)}${r.kontak ? ' · ' + esc(r.kontak) : ''}</dd>
+      <dt>Wilayah</dt><dd>${esc(r.wilayah || '–')}</dd>
+      <dt>Lokasi</dt><dd>${esc(r.lokasi)}${r.lat && r.lng ? ` · <a href="https://www.google.com/maps?q=${esc(r.lat)},${esc(r.lng)}" target="_blank" rel="noopener">buka peta</a>` : ''}</dd>
+      <dt>Deskripsi</dt><dd>${esc(r.deskripsi)}</dd>
+    </dl>
+    <div class="timeline">
+      <div><b>Dilaporkan</b><br><span class="muted">${fmtDate(r.tanggalLapor)}</span></div>
+      <div class="${r.tanggalMulai ? '' : 'off'}"><b>Mulai ditangani</b><br><span class="muted">${fmtDate(r.tanggalMulai)}</span></div>
+      <div class="${r.tanggalSelesai ? '' : 'off'}"><b>Selesai</b><br><span class="muted">${fmtDate(r.tanggalSelesai)}${r.tanggalSelesai ? ' · ' + fmtDur(hoursBetween(r.tanggalLapor, r.tanggalSelesai)) : ''}</span></div>
+    </div>
+    <h3 style="font-size:14px;margin:20px 0 10px">Tindak lanjut</h3>
+    <div class="form" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label>Status</label><select id="eStatus">${opt(S.master.Status, r.status)}</select></div>
+      <div class="field"><label>Petugas</label><select id="ePetugas"><option value="">–</option>${opt(S.master.Petugas || [], r.petugas)}</select></div>
+      <div class="field"><label>Prioritas</label><select id="ePrioritas">${opt(S.master.Prioritas, r.prioritas)}</select></div>
+      <div class="field"><label>Diperbarui</label><input disabled value="${fmtDate(r.diperbarui)}"></div>
+      <div class="field full"><label>Catatan</label><textarea id="eCatatan" rows="3">${esc(r.catatan)}</textarea></div>
+    </div>`;
+  $('#dDelete').style.display = S.user.isAdmin ? '' : 'none';
+  $('#overlay').classList.add('show'); $('#drawer').classList.add('show');
+}
+function closeDrawer() { $('#overlay').classList.remove('show'); $('#drawer').classList.remove('show'); S.current = null; }
+['#overlay', '#dClose', '#dCancel'].forEach((s) => $(s).addEventListener('click', closeDrawer));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+$('#dSave').addEventListener('click', async () => {
+  const r = S.current; if (!r) return;
+  const patch = { status: $('#eStatus').value, petugas: $('#ePetugas').value, prioritas: $('#ePrioritas').value, catatan: $('#eCatatan').value };
+  try {
+    $('#dSave').disabled = true;
+    const updated = await call('updateReport', r.id, patch);
+    S.reports = S.reports.map((x) => (x.id === r.id ? updated : x));
+    closeDrawer(); refreshViews(); toast('Laporan ' + r.id + ' diperbarui');
+  } catch (e) { toast('Gagal: ' + (e.message || e)); } finally { $('#dSave').disabled = false; }
+});
+$('#dDelete').addEventListener('click', async () => {
+  const r = S.current; if (!r || !confirm('Hapus laporan ' + r.id + '? Tindakan ini tidak bisa dibatalkan.')) return;
+  try {
+    await call('deleteReport', r.id);
+    S.reports = S.reports.filter((x) => x.id !== r.id);
+    closeDrawer(); refreshViews(); toast('Laporan dihapus');
+  } catch (e) { toast('Gagal: ' + (e.message || e)); }
+});
+
+/* ============================================================
+ * Form buat laporan
+ * ============================================================ */
+$('#createForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  try {
+    $('#submitBtn').disabled = true; $('#submitBtn').textContent = 'Menyimpan…';
+    const rep = await call('createReport', data);
+    S.reports.unshift(rep);
+    e.target.reset(); clearPick(); refreshViews();
+    toast('Laporan ' + rep.id + ' tersimpan');
+    go('reports');
+  } catch (err) { toast('Gagal: ' + (err.message || err)); }
+  finally { $('#submitBtn').disabled = false; $('#submitBtn').textContent = 'Simpan laporan'; }
+});
+$('#createForm').addEventListener('reset', () => setTimeout(clearPick, 0));
+
+function mapCenter() { const p = String(S.config.MAP_CENTER || '').split(',').map(Number); return p.length === 2 && !p.some(isNaN) ? p : [-2.1316, 106.1169]; }
+function tiles() { return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }); }
+function initPickMap() {
+  if (typeof L === 'undefined') return;
+  if (S.pickMap) { S.pickMap.invalidateSize(); return; }
+  S.pickMap = L.map('pickMap').setView(mapCenter(), +S.config.MAP_ZOOM || 11);
+  tiles().addTo(S.pickMap);
+  S.pickMap.on('click', (e) => {
+    const { lat, lng } = e.latlng;
+    if (S.pickMarker) S.pickMarker.setLatLng(e.latlng); else S.pickMarker = L.marker(e.latlng).addTo(S.pickMap);
+    $('[name=lat]').value = lat.toFixed(6); $('[name=lng]').value = lng.toFixed(6);
+  });
+}
+function clearPick() { if (S.pickMarker) { S.pickMarker.remove(); S.pickMarker = null; } $('[name=lat]').value = ''; $('[name=lng]').value = ''; }
+
+/* ============================================================
+ * Peta
+ * ============================================================ */
+function renderMap() {
+  if (typeof L === 'undefined') return;
+  if (!S.map) { S.map = L.map('map').setView(mapCenter(), +S.config.MAP_ZOOM || 11); tiles().addTo(S.map); }
+  S.map.invalidateSize();
+  if (S.mapLayer) S.mapLayer.remove();
+  const onlyOpen = $('#mapStatus').value === 'open';
+  S.mapLayer = L.layerGroup(S.reports.filter((r) => r.lat && r.lng && (!onlyOpen || isOpen(r))).map((r) =>
+    L.circleMarker([+r.lat, +r.lng], { radius: r.prioritas === 'Darurat' ? 9 : 7, color: '#fff', weight: 2, fillColor: COLORS[r.status] || '#999', fillOpacity: .9 })
+      .bindPopup(`<b class="mono">${esc(r.id)}</b><br>${esc(r.kategori)} · ${esc(r.lokasi)}<br><span class="badge b-${esc(r.status)}">${esc(r.status)}</span> <a href="#" data-open="${esc(r.id)}">detail</a>`))).addTo(S.map);
+}
+$('#mapStatus').addEventListener('change', renderMap);
+document.addEventListener('click', (e) => { const a = e.target.closest('[data-open]'); if (a) { e.preventDefault(); openDrawer(a.dataset.open); } });
+
+/* ============================================================
+ * Init
+ * ============================================================ */
+function refreshViews() { renderDashboard(); renderTable(); if (S.map) renderMap(); }
+$('#rangeSel').addEventListener('change', renderDashboard);
+$('#wilayahSel').addEventListener('change', renderDashboard);
+$('#refreshBtn').addEventListener('click', async () => { S.reports = await call('getReports'); refreshViews(); toast('Data diperbarui'); });
+
+async function init() {
+  try {
+    const d = await call('getInitialData');
+    Object.assign(S, { config: d.config, master: d.master, reports: d.reports.sort((a, b) => b.tanggalLapor.localeCompare(a.tanggalLapor)), user: d.user });
+    document.title = d.config.APP_NAME;
+    $('#appName').textContent = d.config.APP_NAME;
+    $('#orgName').textContent = d.config.ORG_NAME;
+    $('#userInfo').textContent = d.user.email ? 'Masuk sebagai ' + d.user.email : '';
+    $('#demoBar').style.display = d.demo ? 'block' : 'none';
+    const m = d.master;
+    fillSelect($('#wilayahSel'), m.Wilayah, 'Semua wilayah');
+    fillSelect($('#fStatus'), m.Status, 'Semua status');
+    fillSelect($('#fKategori'), m.Kategori, 'Semua kategori');
+    fillSelect($('#fPrioritas'), m.Prioritas, 'Semua prioritas');
+    fillSelect($('#fWilayah'), m.Wilayah, 'Semua wilayah');
+    fillSelect($('[name=kategori]'), m.Kategori);
+    fillSelect($('[name=prioritas]'), m.Prioritas);
+    $('[name=prioritas]').value = m.Prioritas.includes('Sedang') ? 'Sedang' : m.Prioritas[0];
+    fillSelect($('[name=wilayah]'), m.Wilayah, '–');
+    $('#loading').style.display = 'none';
+    renderDashboard();
+    go((location.hash || '#dashboard').slice(1).replace(/[^a-z]/g, '') || 'dashboard');
+  } catch (e) {
+    $('#loading').textContent = 'Gagal memuat data: ' + (e.message || e);
+  }
+}
+init();
+</script>
+</body>
+</html>
