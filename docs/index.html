@@ -269,7 +269,7 @@ function call(fn, ...args) {
 }
 
 const Demo = (() => {
-  const KEY = 'dlg-demo-v1';
+  const KEY = 'dlg-demo-v2';
   const master = {
     Kategori: ['Listrik Padam', 'Jaringan Internet', 'Air Bersih', 'Jalan Rusak', 'Penerangan Jalan', 'Lainnya'],
     Prioritas: ['Rendah', 'Sedang', 'Tinggi', 'Darurat'],
@@ -298,7 +298,7 @@ const Demo = (() => {
         id: 'LG-' + ymd + '-' + String(i + 1).padStart(4, '0'), tanggalLapor: d.toISOString(), pelapor: pick(names),
         kontak: '08' + Math.floor(1e9 + r() * 9e9), kategori: pick(master.Kategori), prioritas: pick(['Rendah', 'Sedang', 'Sedang', 'Tinggi', 'Darurat']),
         wilayah: pick(master.Wilayah), lokasi: pick(places) + ' No. ' + (1 + Math.floor(r() * 120)),
-        lat: (-2.1316 + (r() - .5) * .18).toFixed(5), lng: (106.1169 + (r() - .5) * .18).toFixed(5),
+        lat: (-2.1316 + (r() - .5) * .14).toFixed(5), lng: (106.075 + (r() - .5) * .09).toFixed(5),
         deskripsi: pick(descs), status: st, petugas: st === 'Baru' ? '' : pick(master.Petugas),
         tanggalMulai: start ? new Date(start).toISOString() : '', tanggalSelesai: done ? new Date(done).toISOString() : '',
         catatan: '', diperbarui: new Date(done || start || t).toISOString(),
